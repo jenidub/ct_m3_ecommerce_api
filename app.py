@@ -47,7 +47,7 @@ order_product = Table(
 # email: String (must be unique)
 
 class User(Base):
-    __tablename__ = "user_accounts"
+    __tablename__ = "app_users"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(30), nullable=False)
     address: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -65,7 +65,7 @@ class Order(Base):
     __tablename__ = "app_orders"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     order_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    user_id: Mapped[int] = mapped_column(ForeignKey("user_accounts.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_users.id"))
     
     # Many to One Relationship: List of Orders => 1 User
     user: Mapped["User"] = relationship(back_populates="orders")
@@ -106,3 +106,38 @@ orders_schema = OrderSchema(many=True)
 product_schema = ProductSchema()
 products_schema = ProductSchema(many=True)
 
+# === API ENDPOINTS === #
+## USER ENDPOINTS ##
+# [1] CREATE NEW USER ENDPOINT
+# ● POST /users: Create a new user
+@app.route("/users", methods=["POST"])
+def create_user():
+    try:
+        user_data = user_schema.load(request.json)
+    except ValidationError as e:
+        return jsonify(e.messages), 400
+
+    new_user = User(name=user_data["name"], address=user_data["address"], email=user_data["email"])
+    db.session.add(new_user)
+    db.session.commit()
+    
+    return user_schema.jsonify(new_user), 201
+
+# [2] GET USER INFO ENDPOINTS
+# => GET /users: Retrieve all users
+# => GET /users/<id>: Retrieve a user by ID
+
+# [3] UPDATE USER INFO by ID
+# ● PUT /users/<id>: Update a user by ID
+
+# [4] DELETE USER ACCOUNT
+# ● DELETE /users/<id>: Delete a user by ID
+
+
+# LAUNCH API - Only run if this is the current file
+if __name__ == "__main__":
+    with app.app_context():
+        #db.drop_all() # Delete all tables
+        db.create_all() # Create all of the tables
+    
+    app.run(debug=True)
