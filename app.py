@@ -2,7 +2,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
-from marshmallow import ValidationError
+from marshmallow import ValidationError, fields
 
 import os
 
@@ -55,7 +55,6 @@ class User(Base):
     
     #One to Many Relationship: 1 User => List of Orders
     orders: Mapped[List["Order"]] = relationship(back_populates="user")
-    
 
 # => ORDER TABLE
 # ● id: Integer, primary key, auto-increment
@@ -65,12 +64,15 @@ class User(Base):
 class Order(Base):
     __tablename__ = "app_orders"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    order_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    order_date: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now)
     user_id: Mapped[int] = mapped_column(ForeignKey("app_users.id"))
     
     # Many to One Relationship: List of Orders => 1 User
     user: Mapped["User"] = relationship(back_populates="orders")
-
+    
+    # One to Many: 1 Order => List of Products
+    order_products: Mapped[List["Product"]] = relationship(secondary=order_product, back_populates="product_orders")
+    
 # => PRODUCT TABLE
 # id:Integer, primary key, auto-increment
 # ● product_name: String
@@ -81,6 +83,9 @@ class Product(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     product_name: Mapped[str] = mapped_column(String(200), nullable=False)
     price: Mapped[float] = mapped_column(Float, nullable=False)
+
+    # One to Many: 1 Product => List of Orders
+    product_orders: Mapped[List["Order"]] = relationship(secondary=order_product, back_populates="order_products")
 
 # === MARSHMALLOW SCHEMA DEFINITIONS === #
 ## SCHEMA DEFINITIONS ##
@@ -93,7 +98,9 @@ class UserSchema(ma.SQLAlchemyAutoSchema):
 class OrderSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Order
-        
+    id = ma.auto_field(dump_only=True)
+    user_id = fields.Integer()
+
 # ● ProductSchema
 class ProductSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
@@ -235,22 +242,65 @@ def delete_product(id):
 ## ORDER ENDPOINTS ##
 # [1] CREATE NEW ORDER
 # ● POST /orders: Create a new order (requires user ID and order date)
+@app.route("/orders", methods=["POST"])
+def create_order():
+    try:
+        order_data = order_schema.load(request.json)
+    except ValidationError as e:
+        return jsonify(e.messages), 400
+    
+    new_order = Order(user_id=order_data["user_id"])
+    db.session.add(new_order)
+    db.session.commit()
+    return order_schema.jsonify(new_order), 200
 
 # [2] GET ORDER INFO
 # ● GET /orders/<order_id>/add_product/<product_id>: Add a product to an order
 # (prevent duplicates)
+@app.route("/orders/<int:order_id>/add_product/<int:product_id>", methods=["GET"])
+def add_product(order_id, product_id):
+    order = db.session.get(Order, order_id)
+    if not order:
+        return jsonify({"message": f"Order ID {order_id} not found"}), 400
+    
+    product = db.session.get(Product, product_id)
+    if not product:
+        return jsonify({"message": f"Product ID {product_id} not found"}), 400   
+
+    order.order_products.append(product)
+    db.session.commit()
+    return jsonify({"message": f"{product.product_name} was added to order #{order_id} for user #{order.user_id}"})
+
 # ● GET /orders/user/<user_id>: Get all orders for a user
+@app.route("/orders/user/<int:user_id>", methods=["GET"])
+def get_user_orders(user_id):
+    query = db.session.query(Order).filter_by(user_id=user_id)
+    orders = query.all()
+    if not orders:
+        return jsonify({"message": f"User ID {user_id} not found"}), 400
+    return orders_schema.jsonify(orders), 200
+
 # ● GET /orders/<order_id>/products: Get all products for an order
+# @app.route("/orders/<int:order_id>/products", methods=["GET"])
+# def get_order_products(order_id):
+#     query = db.session.query(Product)
+#     products = query.all()
+#     # if not products:
+#     #     return jsonify({"message": f"Order ID {order_id} not found"}), 400
+#     return product_schema.jsonify(products), 200
 
 # [3] DELETE a PRODUCT from an ORDER
 # ● DELETE /orders/<order_id>/remove_product: Remove a product from an order
 
+# SESSION FIX for BAD RELATIONSHIP
+# with app.app_context():
+#     # db.drop_all() # Delete all tables
+#     db.create_all() # Create all of the tables
 
 # === LAUNCH API === #
 # Only run if this is the current file
 if __name__ == "__main__":
     with app.app_context():
-        #db.drop_all() # Delete all tables
+    #     #db.drop_all() # Delete all tables
         db.create_all() # Create all of the tables
-    
     app.run(debug=True)
