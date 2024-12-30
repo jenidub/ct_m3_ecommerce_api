@@ -203,12 +203,51 @@ def get_product(id):
 
 # [3] UPDATE PRODUCT INFO
 # ● PUT /products/<id>: Update a product by ID
+@app.route("/products/<id>", methods=["PUT"])
+def update_product(id):
+    product = db.session.get(Product, id)
+    
+    if not product:
+        return jsonify({"message": "Invalid product ID"}), 400
+    
+    try:
+        product_data = product_schema.load(request.json)
+    except ValidationError as e:
+        return jsonify(e.messages), 400
+    
+    product.product_name = product_data["product_name"]
+    product.price = product_data["price"]
+    
+    db.session.commit()
+    return product_schema.jsonify(product), 200
 
 # [4] DELETE PRODUCT INFO
 # ● DELETE /products/<id>: Delete a product by ID
+@app.route("/products/<id>", methods=["DELETE"])
+def delete_product(id):
+    product = db.session.get(Product, id)
+    if not product:
+        return jsonify({"message": "ID not found"}), 400
+    db.session.delete(product)
+    db.session.commit()
+    return jsonify({"message": f"Successfully deleted product ID {id}"}), 200
+
+## ORDER ENDPOINTS ##
+# [1] CREATE NEW ORDER
+# ● POST /orders: Create a new order (requires user ID and order date)
+
+# [2] GET ORDER INFO
+# ● GET /orders/<order_id>/add_product/<product_id>: Add a product to an order
+# (prevent duplicates)
+# ● GET /orders/user/<user_id>: Get all orders for a user
+# ● GET /orders/<order_id>/products: Get all products for an order
+
+# [3] DELETE a PRODUCT from an ORDER
+# ● DELETE /orders/<order_id>/remove_product: Remove a product from an order
 
 
-# LAUNCH API - Only run if this is the current file
+# === LAUNCH API === #
+# Only run if this is the current file
 if __name__ == "__main__":
     with app.app_context():
         #db.drop_all() # Delete all tables
