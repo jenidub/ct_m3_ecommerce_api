@@ -55,6 +55,7 @@ class User(Base):
     
     #One to Many Relationship: 1 User => List of Orders
     orders: Mapped[List["Order"]] = relationship(back_populates="user")
+    
 
 # => ORDER TABLE
 # ● id: Integer, primary key, auto-increment
@@ -108,7 +109,7 @@ products_schema = ProductSchema(many=True)
 
 # === API ENDPOINTS === #
 ## USER ENDPOINTS ##
-# [1] CREATE NEW USER ENDPOINT
+# [1] CREATE NEW USER
 # ● POST /users: Create a new user
 @app.route("/users", methods=["POST"])
 def create_user():
@@ -124,14 +125,14 @@ def create_user():
     return user_schema.jsonify(new_user), 200
 
 # [2] GET USER INFO ENDPOINTS
-# => GET /users: Retrieve all users
+# ● GET /users: Retrieve all users
 @app.route("/users", methods=["GET"])
 def get_users():
     query = select(User)
     users = db.session.execute(query).scalars().all()
     return users_schema.jsonify(users), 200
 
-# => GET /users/<id>: Retrieve a user by ID
+# ● GET /users/<id>: Retrieve a user by ID
 @app.route("/users/<id>", methods=["GET"])
 def get_user(id):
     user = db.session.get(User, id)
@@ -170,6 +171,42 @@ def delete_user(id):
     db.session.delete(user)
     db.session.commit()
     return jsonify({"message": f"Successfully deleted User ID {id}"}), 200
+
+## PRODUCT ENDPOINTS ##
+# [1] CREATE NEW PRODUCT
+# ● POST /products: Create a new product
+@app.route("/products", methods=["POST"])
+def create_product():
+    try:
+        product_data = product_schema.load(request.json)
+    except ValidationError as e:
+        return jsonify(e.messages), 400
+    
+    new_product = Product(product_name=product_data["product_name"], price=product_data["price"])
+    db.session.add(new_product)
+    db.session.commit()
+    return product_schema.jsonify(new_product), 200
+
+# [2] PRODUCT GET INFO
+# ● GET /products: Retrieve all products
+@app.route("/products", methods=["GET"])
+def get_products():
+    query = select(Product)
+    products = db.session.execute(query).scalars().all()
+    return products_schema.jsonify(products), 200
+
+# ● GET /products/<id>: Retrieve a product by ID
+@app.route("/products/<id>", methods=["GET"])
+def get_product(id):
+    product = db.session.get(Product, id)
+    return product_schema.jsonify(product), 200
+
+# [3] UPDATE PRODUCT INFO
+# ● PUT /products/<id>: Update a product by ID
+
+# [4] DELETE PRODUCT INFO
+# ● DELETE /products/<id>: Delete a product by ID
+
 
 # LAUNCH API - Only run if this is the current file
 if __name__ == "__main__":
