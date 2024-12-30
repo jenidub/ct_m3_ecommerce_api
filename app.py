@@ -121,11 +121,21 @@ def create_user():
     db.session.add(new_user)
     db.session.commit()
     
-    return user_schema.jsonify(new_user), 201
+    return user_schema.jsonify(new_user), 200
 
 # [2] GET USER INFO ENDPOINTS
 # => GET /users: Retrieve all users
+@app.route("/users", methods=["GET"])
+def get_users():
+    query = select(User)
+    users = db.session.execute(query).scalars().all()
+    return users_schema.jsonify(users), 200
+
 # => GET /users/<id>: Retrieve a user by ID
+@app.route("/users/<id>", methods=["GET"])
+def get_user(id):
+    user = db.session.get(User, id)
+    return user_schema.jsonify(user), 200
 
 # [3] UPDATE USER INFO by ID
 # ● PUT /users/<id>: Update a user by ID
