@@ -139,10 +139,37 @@ def get_user(id):
 
 # [3] UPDATE USER INFO by ID
 # ● PUT /users/<id>: Update a user by ID
+@app.route("/users/<id>", methods=["PUT"])
+def update_user(id):
+    user = db.session.get(User, id)
+    
+    if not user:
+        return jsonify({"message": "Invalid user ID"}), 400
+    
+    try:
+        user_data = user_schema.load(request.json)
+    except ValidationError as e:
+        return jsonify(e.messages), 400
+
+    user.name = user_data["name"]
+    user.address = user_data["address"]
+    user.email = user_data["email"]
+    
+    db.session.commit()
+    return user_schema.jsonify(user), 200
 
 # [4] DELETE USER ACCOUNT
 # ● DELETE /users/<id>: Delete a user by ID
-
+@app.route("/users/<id>", methods=["DELETE"])
+def delete_user(id):
+    user = db.session.get(User, id)
+    
+    if not user:
+        return jsonify({"message": "User not found"}), 400
+    
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({"message": f"Successfully deleted User ID {id}"}), 200
 
 # LAUNCH API - Only run if this is the current file
 if __name__ == "__main__":
