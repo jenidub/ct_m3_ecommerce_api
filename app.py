@@ -256,7 +256,7 @@ def create_order():
 
 # [2] GET ORDER INFO
 # ● GET /orders/<order_id>/add_product/<product_id>: Add a product to an order
-# (prevent duplicates)
+# === TO DO: (prevent duplicates) === #
 @app.route("/orders/<int:order_id>/add_product/<int:product_id>", methods=["GET"])
 def add_product(order_id, product_id):
     order = db.session.get(Order, order_id)
@@ -267,9 +267,12 @@ def add_product(order_id, product_id):
     if not product:
         return jsonify({"message": f"Product ID {product_id} not found"}), 400   
 
-    order.order_products.append(product)
-    db.session.commit()
-    return jsonify({"message": f"{product.product_name} was added to order #{order_id} for user #{order.user_id}"})
+    if product not in order.order_products:
+        order.order_products.append(product)
+        db.session.commit()
+        return jsonify({"message": f"{product.product_name} was added to order #{order_id} for user #{order.user_id}"}), 200
+    else:
+        return jsonify({"message": f"{product.product_name} is already in order #{order_id}"}), 400
 
 # ● GET /orders/user/<user_id>: Get all orders for a user
 @app.route("/orders/user/<int:user_id>", methods=["GET"])
@@ -281,16 +284,27 @@ def get_user_orders(user_id):
     return orders_schema.jsonify(orders), 200
 
 # ● GET /orders/<order_id>/products: Get all products for an order
-# @app.route("/orders/<int:order_id>/products", methods=["GET"])
-# def get_order_products(order_id):
-#     query = db.session.query(Product)
-#     products = query.all()
-#     # if not products:
-#     #     return jsonify({"message": f"Order ID {order_id} not found"}), 400
-#     return product_schema.jsonify(products), 200
+@app.route("/orders/<int:order_id>/products", methods=["GET"])
+def get_order_products(order_id):
+    order = db.session.get(Order, order_id)
+    products = order.order_products
+    if not products:
+        return jsonify({"message": f"Order ID {order_id} not found"}), 400
+    return products_schema.jsonify(products), 200
 
 # [3] DELETE a PRODUCT from an ORDER
-# ● DELETE /orders/<order_id>/remove_product: Remove a product from an order
+# ● DELETE /orders/<id:order_id>/remove_product/<id:<product_id> Remove a product from an order
+@app.route("/orders/<int:order_id>/remove_product/<int:product_id>", methods=["DELETE"])
+def delete_order_product(order_id, product_id):
+    order = db.session.query(Order).get(order_id)
+    product = db.session.query(Product).get(product_id)
+
+    if product in order.order_products:
+        order.order_products.remove(product)
+        db.session.commit()
+        return jsonify({"message": f"Association between {order_id} and {product_id} successfully removed"}), 200
+    else:
+        return jsonify({"message": f"Association not found"}), 400
 
 # SESSION FIX for BAD RELATIONSHIP
 # with app.app_context():
