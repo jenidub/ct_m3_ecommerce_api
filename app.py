@@ -1,13 +1,12 @@
-# PROJECT LIBRARY IMPORT STATEMENTS
+# ===  PROJECT LIBRARY IMPORT STATEMENTS === #
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from marshmallow import ValidationError, fields
 
-import os
-
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey, Table, String, Column, select, DateTime, Float
+
 from typing import List
 from datetime import datetime
 
@@ -29,10 +28,10 @@ db.init_app(app)
 ma = Marshmallow(app)
 
 ## TABLE DEFINITIONS ##
+
 # => ORDER PRODUCT ASSOCIATION TABLE
 # ● order_id:Integer,foreign key referencing Order
 # ● product_id:Integer,foreign key referencing Product
-
 order_product = Table(
     "order_product",
     Base.metadata,
@@ -41,11 +40,10 @@ order_product = Table(
 )
 
 # => USER TABLE
-# id:Integer, primary key, auto-increment
-# name: String
-# address: String
-# email: String (must be unique)
-
+# ● id:Integer, primary key, auto-increment
+# ● name: String
+# ● address: String
+# ● email: String (must be unique)
 class User(Base):
     __tablename__ = "app_users"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -60,7 +58,6 @@ class User(Base):
 # ● id: Integer, primary key, auto-increment
 # ● order_date: DateTime (learn to use DateTime in SQLAlchemy)
 # ● user_id: Integer, foreign key referencing User
-
 class Order(Base):
     __tablename__ = "app_orders"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -74,10 +71,9 @@ class Order(Base):
     order_products: Mapped[List["Product"]] = relationship(secondary=order_product, back_populates="product_orders")
     
 # => PRODUCT TABLE
-# id:Integer, primary key, auto-increment
+# ● id:Integer, primary key, auto-increment
 # ● product_name: String
 # ● price: Float
-
 class Product(Base):
     __tablename__ = "app_products"
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -89,24 +85,25 @@ class Product(Base):
 
 # === MARSHMALLOW SCHEMA DEFINITIONS === #
 ## SCHEMA DEFINITIONS ##
-# ● UserSchema
+# UserSchema
 class UserSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = User
 
-# ● OrderSchema
+# OrderSchema
 class OrderSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Order
+    # Fix provided during 1-1 office hours session
     id = ma.auto_field(dump_only=True)
     user_id = fields.Integer()
 
-# ● ProductSchema
+# ProductSchema
 class ProductSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Product
 
-## INIT SCHEMAS ##
+## INITIALIZE SCHEMAS ##
 user_schema = UserSchema()
 users_schema = UserSchema(many=True)
 order_schema = OrderSchema()
@@ -128,7 +125,6 @@ def create_user():
     new_user = User(name=user_data["name"], address=user_data["address"], email=user_data["email"])
     db.session.add(new_user)
     db.session.commit()
-    
     return user_schema.jsonify(new_user), 200
 
 # [2] GET USER INFO ENDPOINTS
@@ -162,7 +158,6 @@ def update_user(id):
     user.name = user_data["name"]
     user.address = user_data["address"]
     user.email = user_data["email"]
-    
     db.session.commit()
     return user_schema.jsonify(user), 200
 
@@ -213,7 +208,6 @@ def get_product(id):
 @app.route("/products/<id>", methods=["PUT"])
 def update_product(id):
     product = db.session.get(Product, id)
-    
     if not product:
         return jsonify({"message": "Invalid product ID"}), 400
     
@@ -224,7 +218,6 @@ def update_product(id):
     
     product.product_name = product_data["product_name"]
     product.price = product_data["price"]
-    
     db.session.commit()
     return product_schema.jsonify(product), 200
 
@@ -235,6 +228,7 @@ def delete_product(id):
     product = db.session.get(Product, id)
     if not product:
         return jsonify({"message": "ID not found"}), 400
+    
     db.session.delete(product)
     db.session.commit()
     return jsonify({"message": f"Successfully deleted product ID {id}"}), 200
@@ -256,7 +250,6 @@ def create_order():
 
 # [2] GET ORDER INFO
 # ● GET /orders/<order_id>/add_product/<product_id>: Add a product to an order
-# === TO DO: (prevent duplicates) === #
 @app.route("/orders/<int:order_id>/add_product/<int:product_id>", methods=["GET"])
 def add_product(order_id, product_id):
     order = db.session.get(Order, order_id)
@@ -290,6 +283,7 @@ def get_order_products(order_id):
     products = order.order_products
     if not products:
         return jsonify({"message": f"Order ID {order_id} not found"}), 400
+    
     return products_schema.jsonify(products), 200
 
 # [3] DELETE a PRODUCT from an ORDER
@@ -305,11 +299,6 @@ def delete_order_product(order_id, product_id):
         return jsonify({"message": f"Association between {order_id} and {product_id} successfully removed"}), 200
     else:
         return jsonify({"message": f"Association not found"}), 400
-
-# SESSION FIX for BAD RELATIONSHIP
-# with app.app_context():
-#     # db.drop_all() # Delete all tables
-#     db.create_all() # Create all of the tables
 
 # === LAUNCH API === #
 # Only run if this is the current file
