@@ -1,4 +1,4 @@
-# eCommerce API
+# CT Module 3 End of Unit Project: eCommerce API
 The following eCommerce API was built using Flask and Flask-Marshmallow, connected to a MySQL database. It provides functionality to manage users, products, and orders, including CRUD operations and associations between these entities.
 
 ## Features
