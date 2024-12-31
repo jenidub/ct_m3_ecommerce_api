@@ -133,22 +133,27 @@ def create_user():
 def get_users():
     query = select(User)
     users = db.session.execute(query).scalars().all()
+    if not users:
+        return jsonify({"message": "No users in the database"}), 400
     return users_schema.jsonify(users), 200
 
 # ● GET /users/<id>: Retrieve a user by ID
-@app.route("/users/<id>", methods=["GET"])
+@app.route("/users/<int:id>", methods=["GET"])
 def get_user(id):
     user = db.session.get(User, id)
+    if not user:
+        return jsonify({"message": f"{id} is an invalid user ID"}), 400
+    
     return user_schema.jsonify(user), 200
 
 # [3] UPDATE USER INFO by ID
 # ● PUT /users/<id>: Update a user by ID
-@app.route("/users/<id>", methods=["PUT"])
+@app.route("/users/<int:id>", methods=["PUT"])
 def update_user(id):
     user = db.session.get(User, id)
     
     if not user:
-        return jsonify({"message": "Invalid user ID"}), 400
+        return jsonify({"message": f"User ID {id} not found"}), 400
     
     try:
         user_data = user_schema.load(request.json)
@@ -163,12 +168,12 @@ def update_user(id):
 
 # [4] DELETE USER ACCOUNT
 # ● DELETE /users/<id>: Delete a user by ID
-@app.route("/users/<id>", methods=["DELETE"])
+@app.route("/users/<int:id>", methods=["DELETE"])
 def delete_user(id):
     user = db.session.get(User, id)
     
     if not user:
-        return jsonify({"message": "User not found"}), 400
+        return jsonify({"message": f"User ID {id} not found"}), 400
     
     db.session.delete(user)
     db.session.commit()
@@ -198,18 +203,21 @@ def get_products():
     return products_schema.jsonify(products), 200
 
 # ● GET /products/<id>: Retrieve a product by ID
-@app.route("/products/<id>", methods=["GET"])
+@app.route("/products/<int:id>", methods=["GET"])
 def get_product(id):
     product = db.session.get(Product, id)
+    if not product:
+        return jsonify({"message": f"Invalid product ID {id} entered"}), 400
+    
     return product_schema.jsonify(product), 200
 
 # [3] UPDATE PRODUCT INFO
 # ● PUT /products/<id>: Update a product by ID
-@app.route("/products/<id>", methods=["PUT"])
+@app.route("/products/<int:id>", methods=["PUT"])
 def update_product(id):
     product = db.session.get(Product, id)
     if not product:
-        return jsonify({"message": "Invalid product ID"}), 400
+        return jsonify({"message": f"Invalid product ID {id}"}), 400
     
     try:
         product_data = product_schema.load(request.json)
@@ -227,7 +235,7 @@ def update_product(id):
 def delete_product(id):
     product = db.session.get(Product, id)
     if not product:
-        return jsonify({"message": "ID not found"}), 400
+        return jsonify({"message": f"Product ID {id} not found"}), 400
     
     db.session.delete(product)
     db.session.commit()
@@ -263,9 +271,9 @@ def add_product(order_id, product_id):
     if product not in order.order_products:
         order.order_products.append(product)
         db.session.commit()
-        return jsonify({"message": f"{product.product_name} was added to order #{order_id} for user #{order.user_id}"}), 200
+        return jsonify({"message": f"{product.product_name} was added to Order ID {order_id} for User ID {order.user_id}"}), 200
     else:
-        return jsonify({"message": f"{product.product_name} is already in order #{order_id}"}), 400
+        return jsonify({"message": f"{product.product_name} is already in Order ID {order_id}"}), 400
 
 # ● GET /orders/user/<user_id>: Get all orders for a user
 @app.route("/orders/user/<int:user_id>", methods=["GET"])
@@ -282,7 +290,7 @@ def get_order_products(order_id):
     order = db.session.get(Order, order_id)
     products = order.order_products
     if not products:
-        return jsonify({"message": f"Order ID {order_id} not found"}), 400
+        return jsonify({"message": f"No products were found in order ID {order_id}"}), 400
     
     return products_schema.jsonify(products), 200
 
@@ -296,9 +304,9 @@ def delete_order_product(order_id, product_id):
     if product in order.order_products:
         order.order_products.remove(product)
         db.session.commit()
-        return jsonify({"message": f"Association between {order_id} and {product_id} successfully removed"}), 200
+        return jsonify({"message": f"Product ID {product_id} was successfully removed from Order ID {order_id}"}), 200
     else:
-        return jsonify({"message": f"Association not found"}), 400
+        return jsonify({"message": f"Product ID {product_id} was not found in Order ID {order_id}"}), 400
 
 # === LAUNCH API === #
 # Only run if this is the current file
